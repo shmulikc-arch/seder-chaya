@@ -425,7 +425,7 @@ function todayList(){
   const open = tasks().filter(t=>!t.small && isOpen(t)).sort((a,b)=>score(b)-score(a));
   const must = open.filter(t=>t.urgency===3 || (t.due && t.due<=T) || t.recur);
   const rest = open.filter(t=>!must.includes(t));
-  return must.concat(rest).slice(0, Math.max(6, must.length));
+  return must.concat(rest);
 }
 
 /* ---------- DOM helpers ---------- */
@@ -696,6 +696,7 @@ function openAdd(){
     items[id]=it; persist(it); closeSheet();
     if(it.kind==="task"){ if(view==="ideas") view="today"; } else view="ideas";
     render(true);
+    toast(it.kind==="idea"?"הרעיון נוסף ✓":"המשימה נוספה ✓");
     if(it.kind==="task") aiClassify(it);
   };
   openSheet([
