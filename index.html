@@ -254,6 +254,17 @@ body.is-dragging{user-select:none;-webkit-user-select:none;cursor:grabbing}
 .add-col:hover{background:rgba(255,255,255,.06)}
 @media (min-width:900px){ .board .add-col{min-height:min(60vh,520px)} }
 
+.col-meta{display:inline-flex;align-items:center;gap:6px}
+.col-del{border:0;background:transparent;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;padding:0;opacity:.55;flex:none}
+.col-del svg{width:17px;height:17px;stroke:var(--muted)}
+.col-del:hover,.col-del:focus-visible{opacity:1;background:var(--surface2)}
+.col-del:hover svg{stroke:var(--danger)}
+.del-bar{background:var(--surface);border:1.5px solid var(--danger);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.del-bar p{margin:0;font-weight:600;font-size:15px}
+.del-actions{display:flex;gap:8px}
+.del-actions .btn{flex:none;padding:8px 18px}
+.btn.danger{background:var(--danger);color:#fff}
+
 /* on the purple ground */
 .hello,.summary,.sec-h h3,.stage-top h2,.focus-task h3,.ring .clock b{color:var(--on-bg)}
 .date,.sec-h span,.ring .clock span,.focus-task .eyebrow,.stage .hint{color:var(--on-bg-muted)}
@@ -750,6 +761,31 @@ function editTitle(h4,c){
   inp.addEventListener("blur",()=>finish(true));
   h4.replaceChildren(inp); inp.focus(); inp.select();
 }
+function askDelete(col,c){
+  const others=CATS.filter(x=>x.id!==c.id);
+  const affected=realItems().filter(t=>t.kind==="task" && catOf(t).id===c.id);
+  const openN=affected.filter(isOpen).length;
+  const target=others[0];
+  const bar=h("div",{class:"del-bar",role:"alertdialog","aria-label":"אישור מחיקה"},
+    h("p",{},"למחוק את העמודה \""+c.name+"\"?"+(openN? " "+(openN===1?"המשימה שבה תעבור":"ה־"+openN+" משימות שבה יעברו")+" ל\""+target.name+"\".":"")),
+    h("div",{class:"del-actions"},
+      h("button",{class:"btn danger",onclick:()=>doDelete(c,affected)},"מחיקה"),
+      h("button",{class:"btn ghost",onclick:()=>render(false)},"ביטול")));
+  const old=col.querySelector(".del-bar"); if(old) old.remove();
+  col.querySelector(".col-h").after(bar);
+  bar.querySelector(".btn.danger").focus();
+}
+function doDelete(c,affected){
+  const prevTopics=CATS.map(x=>({id:x.id,name:x.name}));
+  const prevCats=affected.map(t=>[t.id,t.cat,t.catSet]);
+  saveTopics(prevTopics.filter(x=>x.id!==c.id));
+  persistSettings(); render(false);
+  toast("העמודה \""+c.name+"\" נמחקה", ()=>{
+    settings.topics=prevTopics; setTopics(prevTopics);
+    prevCats.forEach(([id,cat,cs])=>{ const t=items[id]; if(t){ t.cat=cat; t.catSet=cs; persist(t);} });
+    persistSettings(); render(false);
+  });
+}
 function addTopicInline(){
   const id="tp"+Date.now().toString(36);
   saveTopics(CATS.map(x=>({id:x.id,name:x.name})).concat([{id,name:"נושא חדש"}]));
@@ -772,7 +808,8 @@ function boardView(){
     const l=rest.filter(t=>catOf(t).id===c.id).sort((a,b)=>score(b)-score(a));
     const mins=l.reduce((s,t)=>s+(t.minutes||0),0);
     panels.push(h("section",{class:"col pop",style:`--tint:var(${c.tint});--i:${ci+3}`,"data-cat":c.id},
-      h("div",{class:"col-h"},topicTitle(c),h("span",{},l.length? l.length+(mins?" · "+fmtMin(mins):"") : "")),
+      h("div",{class:"col-h"},topicTitle(c),h("span",{class:"col-meta"},l.length? l.length+(mins?" · "+fmtMin(mins):"") : "",
+        CATS.length>1? h("button",{class:"col-del",title:"מחיקת העמודה","aria-label":"מחיקת הנושא "+c.name,onclick:e=>askDelete(e.currentTarget.closest(".col"),c)}, svg('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',"1.8")) : null)),
       l.length? h("div",{class:"col-list"}, l.map(t=>trow(t))) : null,
       quickAdd(c.id)));
   });
