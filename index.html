@@ -224,6 +224,27 @@ textarea{min-height:76px;resize:vertical}
 .tp-btn.del{color:var(--danger)}
 .ex-mark{font-size:12px;color:var(--muted)}
 
+.grip{flex:none;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+.grip.dots{width:22px;height:30px;display:grid;place-items:center;margin-inline-end:-4px;border-radius:8px}
+.grip.dots svg{width:18px;height:18px;stroke:var(--muted);fill:var(--muted)}
+.grip.dots:hover{background:var(--surface2)}
+.trow.dragging{opacity:.35}
+.trow.ghost{position:fixed;z-index:60;pointer-events:none;box-shadow:0 14px 30px rgba(20,8,35,.45);transform:rotate(-1.5deg);background:var(--surface);margin:0}
+body.is-dragging{user-select:none;-webkit-user-select:none;cursor:grabbing}
+.col.drop{outline:3px dashed var(--gold-on-bg);outline-offset:3px}
+.col.prev.drop{outline:0}
+.today-top{display:flex;flex-direction:column}
+@media (min-width:900px){
+  .app{max-width:min(1440px,100%);padding-inline:max(28px,env(safe-area-inset-left,0px))}
+  .today-top{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;align-items:stretch;margin-top:18px}
+  .today-top .hero{margin-top:0}
+  .today-top .raffle-btn{margin-top:0;height:100%;justify-content:center}
+  .board{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(230px,1fr);overflow-x:auto;align-items:stretch;padding-bottom:8px}
+  .col{min-height:min(60vh,520px)}
+  .col .qa{margin-top:auto}
+  .fab{left:max(28px,env(safe-area-inset-left,0px))}
+}
+
 /* on the purple ground */
 .hello,.summary,.sec-h h3,.stage-top h2,.focus-task h3,.ring .clock b{color:var(--on-bg)}
 .date,.sec-h span,.ring .clock span,.focus-task .eyebrow,.stage .hint{color:var(--on-bg-muted)}
@@ -598,10 +619,10 @@ function viewToday(){
         h("button",{class:"done-btn",onclick:()=>complete(hero)},"סיימתי ✓"),
         h("button",{class:"done-btn ghost",onclick:()=>openFocus(hero)},"⏱ להתחיל עם טיימר"))
     );
-    out.push(hr);
-    if(rafflePool().length>1) out.push(h("button",{class:"raffle-btn pop",style:"--i:1",onclick:openRaffle},
+    const rf = rafflePool().length>1 ? h("button",{class:"raffle-btn pop",style:"--i:1",onclick:openRaffle},
       h("span",{class:"dice","aria-hidden":"true"},"🎲"),
-      h("span",{}, h("b",{},"לא בא לי להחליט"), h("small",{},"הגרלה בין "+rafflePool().length+" הדברים הדחופים"))));
+      h("span",{}, h("b",{},"לא בא לי להחליט"), h("small",{},"הגרלה בין "+rafflePool().length+" הדברים הדחופים"))) : null;
+    out.push(h("div",{class:"today-top"},hr,rf));
   } else {
     out.push(h("p",{class:"summary"},"אין משימות פתוחות להיום. זמן מצוין למשהו נחמד 🌸"));
   }
@@ -624,12 +645,64 @@ function trow(t, num){
   if(num!=null){ const d=taskDay(t), n=diffDays(todayStr(),d); meta.push(h("span",{}, catOf(t).name+" · "+(n===1?"מאתמול":"מיום "+DAYS[parse(d).getDay()]))); }
   if(t.minutes) meta.push(h("span",{},fmtMin(t.minutes)));
   if(pendingAI.has(t.id)) meta.push(h("span",{class:"ai pending"},"✦"));
-  return h("div",{class:"trow"+(t.id.startsWith("ex")?" ex":"")},
-    num!=null? h("span",{class:"num","aria-hidden":"true"},num) : null,
+  const grip = num!=null
+    ? h("span",{class:"num grip",title:"לגרור לנושא אחר","aria-hidden":"true"},num)
+    : h("span",{class:"grip dots",title:"לגרור לנושא אחר","aria-hidden":"true"}, svg('<circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/>',"2"));
+  const row = h("div",{class:"trow"+(t.id.startsWith("ex")?" ex":""),"data-id":t.id},
+    grip,
     h("button",{class:"tmain",onclick:()=>openEdit(t)},
       h("span",{class:"tt"},t.text),
       meta.length? h("span",{class:"tmeta"},meta):null),
     h("button",{class:"check sm","aria-label":"סימון כבוצע: "+t.text,onclick:()=>complete(t)}, svg(ICON.check,"3")));
+  grip.addEventListener("pointerdown",e=>startDrag(e,t,row));
+  return row;
+}
+
+/* ---------- drag a task to another topic (mouse and finger) ---------- */
+let drag=null;
+function startDrag(e,t,row){
+  if(e.button>0) return;
+  e.preventDefault();
+  const r=row.getBoundingClientRect();
+  const ghost=row.cloneNode(true);
+  ghost.className="trow ghost"; ghost.setAttribute("dir","rtl");
+  Object.assign(ghost.style,{width:r.width+"px",left:r.left+"px",top:r.top+"px"});
+  document.body.append(ghost); row.classList.add("dragging");
+  drag={t,row,ghost,dx:e.clientX-r.left,dy:e.clientY-r.top,target:null,id:e.pointerId};
+  document.body.classList.add("is-dragging");
+  try{ navigator.vibrate && navigator.vibrate(15); }catch(_){}
+}
+function dragMove(e){
+  if(!drag || e.pointerId!==drag.id) return;
+  e.preventDefault();
+  drag.ghost.style.left=(e.clientX-drag.dx)+"px"; drag.ghost.style.top=(e.clientY-drag.dy)+"px";
+  const el=document.elementFromPoint(e.clientX,e.clientY);
+  const col=el && el.closest(".col[data-cat]");
+  if(col!==drag.target){ if(drag.target) drag.target.classList.remove("drop"); drag.target=col; if(col) col.classList.add("drop"); }
+  if(e.clientY<90) window.scrollBy(0,-14); else if(e.clientY>innerHeight-150) window.scrollBy(0,14);
+  const b=col && col.closest(".board"); if(b && b.scrollWidth>b.clientWidth){ const br=b.getBoundingClientRect(); if(e.clientX<br.left+50) b.scrollLeft-=14; else if(e.clientX>br.right-50) b.scrollLeft+=14; }
+}
+function dragEnd(e, cancel){
+  if(!drag || (e && e.pointerId!==drag.id)) return;
+  const {t,row,ghost,target}=drag; drag=null;
+  ghost.remove(); row.classList.remove("dragging"); document.body.classList.remove("is-dragging");
+  if(target) target.classList.remove("drop");
+  if(!cancel && target) moveTo(t, target.dataset.cat);
+}
+document.addEventListener("pointermove",dragMove,{passive:false});
+document.addEventListener("pointerup",e=>dragEnd(e,false));
+document.addEventListener("pointercancel",e=>dragEnd(e,true));
+document.addEventListener("touchmove",e=>{ if(drag) e.preventDefault(); },{passive:false});
+function moveTo(t, catId){
+  if(!catId || catId==="__prev") return;
+  if(guardExample(t)) return;
+  const T=todayStr(), wasCarried=isCarried(t);
+  if(catOf(t).id===catId && !wasCarried) return;
+  const before=JSON.parse(JSON.stringify(t));
+  t.cat=catId; t.catSet=true;
+  if(wasCarried){ t.day=T; if(t.recur) t.nextDue=T; }
+  persist(t); render(false);
+  toast("הועבר ל"+CAT[catId].name, ()=>{ items[t.id]=before; persist(before); render(false); });
 }
 function quickAdd(catId){
   const c=CAT[catId];
@@ -653,17 +726,17 @@ function boardView(){
   const open=tasks().filter(t=>isOpen(t) && !t.small);
   const carried=open.filter(isCarried).sort((a,b)=>taskDay(a).localeCompare(taskDay(b)) || score(b)-score(a));
   const rest=open.filter(t=>!carried.includes(t));
-  const out=[h("div",{class:"sec-h board-h"},h("h3",{},"לוח המשימות שלי"))];
+  const out=[h("div",{class:"sec-h board-h"},h("h3",{},"לוח המשימות שלי"),h("span",{},"גוררים ⋮⋮ כדי להעביר משימה"))];
   const panels=[];
   if(carried.length){
-    panels.push(h("section",{class:"col prev pop",style:"--i:2"},
+    panels.push(h("section",{class:"col prev pop",style:"--i:2","data-cat":"__prev"},
       h("div",{class:"col-h"},h("h4",{},"קודמים"),h("span",{},carried.length===1?"משימה אחת שעברה להיום":carried.length+" משימות שעברו להיום")),
       h("div",{class:"col-list"}, carried.map((t,i)=>trow(t,i+1)))));
   }
   CATS.forEach((c,ci)=>{
     const l=rest.filter(t=>catOf(t).id===c.id).sort((a,b)=>score(b)-score(a));
     const mins=l.reduce((s,t)=>s+(t.minutes||0),0);
-    panels.push(h("section",{class:"col pop",style:`--tint:var(${c.tint});--i:${ci+3}`},
+    panels.push(h("section",{class:"col pop",style:`--tint:var(${c.tint});--i:${ci+3}`,"data-cat":c.id},
       h("div",{class:"col-h"},h("h4",{},c.name),h("span",{},l.length? l.length+(mins?" · "+fmtMin(mins):"") : "")),
       l.length? h("div",{class:"col-list"}, l.map(t=>trow(t))) : null,
       quickAdd(c.id)));
@@ -839,14 +912,13 @@ function openEdit(t){
   if(guardExample(t)) return;
   let urgency=t.urgency||2, cat=t.cat||"home";
   const text=h("textarea",{id:"ed-text"}); text.value=t.text;
-  cat=catOf(t).id;
-  const catSel=h("select",{id:"ed-cat"},CATS.map(c=>h("option",{value:c.id,selected:c.id===cat},c.name)));
-  catSel.onchange=()=>{cat=catSel.value;};
+  cat=catOf(t).id; const before0=cat;
+  const catSel=seg(CATS.map(c=>[c.id,c.name]),cat,v=>{cat=v;});
   const minIn=h("input",{type:"number",id:"ed-min",min:"1",max:"600",value:t.minutes||""});
   const due=h("input",{type:"date",id:"ed-due",value:t.due||""});
   const smallChk=h("input",{type:"checkbox",id:"ed-small",checked:!!t.small,style:"width:20px;height:20px"});
   const save=()=>{
-    t.text=text.value.trim()||t.text; if(cat!==t.cat){t.cat=cat; t.catSet=true;} const nm=Math.round(Number(minIn.value)); if(nm>0 && nm!==t.minutes){t.minutes=Math.min(600,nm); t.minutesSet=true;}
+    t.text=text.value.trim()||t.text; if(cat!==t.cat){t.cat=cat; t.catSet=true;} if(isCarried(t) && t.catSet && cat!==before0){ t.day=todayStr(); if(t.recur) t.nextDue=todayStr(); } const nm=Math.round(Number(minIn.value)); if(nm>0 && nm!==t.minutes){t.minutes=Math.min(600,nm); t.minutesSet=true;}
     t.urgency=urgency; t.small=smallChk.checked; t.smallSet=true;
     if(!t.recur) t.due=due.value||null;
     persist(t); closeSheet(); render(false);
@@ -854,10 +926,9 @@ function openEdit(t){
   openSheet([
     h("h3",{},"עריכת משימה"),
     h("div",{class:"field"},text),
+    h("div",{class:"field"},h("span",{class:"lbl"},"נושא (לחיצה מעבירה)"),catSel),
     h("div",{class:"two"},
-      h("div",{class:"field"},h("label",{for:"ed-cat"},"נושא"),catSel),
-      h("div",{class:"field"},h("label",{for:"ed-min"},"כמה דקות בערך?"),minIn)),
-    h("div",{class:"two"},
+      h("div",{class:"field"},h("label",{for:"ed-min"},"כמה דקות בערך?"),minIn),
       t.recur? h("div",{class:"field"},h("span",{class:"lbl"},"חוזרת"),h("div",{style:"padding:11px 0"},recurLabel(t.recur))) : h("div",{class:"field"},h("label",{for:"ed-due"},"עד מתי?"),due)),
     h("div",{class:"field"},h("span",{class:"lbl"},"כמה דחוף?"), seg([[3,"דחוף"],[2,"חשוב"],[1,"מתי שיוצא"]],urgency,v=>urgency=v)),
     h("label",{style:"display:flex;gap:10px;align-items:center;font-weight:600"},smallChk,"זה דבר קטן (מופיע ברשימת הקטנים)"),
