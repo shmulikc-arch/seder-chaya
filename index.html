@@ -191,6 +191,39 @@ textarea{min-height:76px;resize:vertical}
 .toast{position:fixed;z-index:50;bottom:calc(150px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);border-radius:999px;padding:10px 16px;display:flex;gap:14px;align-items:center;font-size:15px;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
 .toast button{border:0;background:transparent;color:var(--bg);font-weight:700;text-decoration:underline}
 
+.bsd{font-size:13px;font-weight:700;color:var(--on-bg-muted);margin-bottom:2px}
+/* board */
+.board-h{margin-top:28px}
+.board{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:12px;align-items:start}
+.col{background:var(--tint,var(--surface));border-radius:20px;padding:12px 12px 10px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow);min-width:0}
+.col-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:2px 4px 6px}
+.col-h h4{margin:0;font-family:var(--f-display);font-weight:600;font-size:19px;color:var(--ink);text-decoration:underline;text-decoration-color:var(--plum);text-decoration-thickness:2px;text-underline-offset:6px}
+.col-h span{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.col-list{display:flex;flex-direction:column;gap:6px}
+.trow{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:14px;padding:8px 10px;min-width:0;border:1px solid var(--line)}
+.trow .tmain{flex:1;min-width:0;border:0;background:none;padding:0;text-align:right;display:flex;flex-direction:column;gap:2px}
+.trow .tt{font-weight:700;font-size:16px;line-height:1.3;overflow-wrap:anywhere}
+.trow .tmeta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px;color:var(--muted)}
+.trow.ex .tt::after{content:" · דוגמה";font-weight:400;font-size:12px;color:var(--muted)}
+.check.sm{width:28px;height:28px}
+.num{flex:none;width:26px;height:26px;border-radius:8px;background:var(--plum);color:var(--on-plum);display:grid;place-items:center;font-weight:700;font-size:14px;font-variant-numeric:tabular-nums}
+.col.prev{background:var(--bg-deep)}
+.col.prev .col-h h4{color:var(--on-bg);text-decoration-color:var(--gold-on-bg)}
+.col.prev .col-h span{color:var(--on-bg-muted)}
+.col.prev .num{background:var(--gold-on-bg);color:var(--ink)}
+.qa{display:flex;align-items:center;border:1.5px dashed var(--line);border-radius:14px;padding:2px 4px;background:transparent}
+.qa:focus-within{border-color:var(--plum);border-style:solid;background:var(--surface)}
+.qa-in{flex:1;min-width:0;border:0!important;background:transparent!important;padding:9px 8px!important;font:inherit;font-size:15px;color:var(--ink)}
+.qa-in:focus-visible{outline:none}
+.qa-in::placeholder{color:var(--muted)}
+.topics{display:flex;flex-direction:column;gap:8px}
+.tp-row{display:flex;gap:8px;align-items:center}
+.tp-row input{flex:1;min-width:0}
+.tp-btn{flex:none;width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--surface2);font-weight:700}
+.tp-btn.ghost{border:0;background:transparent}
+.tp-btn.del{color:var(--danger)}
+.ex-mark{font-size:12px;color:var(--muted)}
+
 /* on the purple ground */
 .hello,.summary,.sec-h h3,.stage-top h2,.focus-task h3,.ring .clock b{color:var(--on-bg)}
 .date,.sec-h span,.ring .clock span,.focus-task .eyebrow,.stage .hint{color:var(--on-bg-muted)}
@@ -219,15 +252,14 @@ textarea{min-height:76px;resize:vertical}
 (function(){
 "use strict";
 /* ---------- constants ---------- */
-const CATS = [
-  {id:"home",    name:"בית",             tint:"--c-home",    subs:["ניקיון","כביסה","בישול","סידור וארגון","תיקונים"]},
-  {id:"family",  name:"ילדים ומשפחה",    tint:"--c-family",  subs:["גן ובית ספר","חוגים","משפחה","מתנות ואירועים"]},
-  {id:"errands", name:"קניות וסידורים",  tint:"--c-errands", subs:["סופר","בית מרקחת","דואר ובנק","קניות לבית"]},
-  {id:"calls",   name:"טלפונים ותורים",  tint:"--c-calls",   subs:["תורים","טלפונים","ניירת ותשלומים"]},
-  {id:"shabbat", name:"שבת וחג",          tint:"--c-shabbat", subs:["בישולים","הכנות","אורחים"]},
-  {id:"me",      name:"אני",              tint:"--c-me",      subs:["בריאות","לימוד","זמן לעצמי"]}
-];
-const CAT = Object.fromEntries(CATS.map(c=>[c.id,c]));
+const TINTS=["--c-family","--c-calls","--c-errands","--c-home","--c-me","--c-shabbat"];
+const DEFAULT_TOPICS=[{id:"family",name:"משפחה"},{id:"school",name:"בית ספר"},{id:"work",name:"עבודה"},{id:"home",name:"בית"}];
+const LEGACY={home:"בית",family:"משפחה",errands:"קניות וסידורים",calls:"טלפונים ותורים",shabbat:"שבת וחג",me:"אני"};
+const FALLBACK={errands:"home",calls:"home",shabbat:"home",me:"family",school:"family",work:"home"};
+let CATS=[], CAT={};
+function setTopics(list){ CATS=list.map((c,i)=>({id:c.id,name:c.name,tint:TINTS[i%TINTS.length]})); CAT=Object.fromEntries(CATS.map(c=>[c.id,c])); }
+function catOf(t){ return CAT[t&&t.cat] || CATS[0] || {id:"",name:"",tint:TINTS[0]}; }
+function resolveCat(id){ if(CAT[id]) return id; const f=FALLBACK[id]; if(f&&CAT[f]) return f; return CATS[0]?CATS[0].id:""; }
 const DAYS = ["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"];
 const URG = {3:"דחוף",2:"חשוב",1:"מתי שיוצא"};
 const LS_KEY = "chaya-seder-v1";
@@ -242,7 +274,8 @@ const RULES = [
   [/לבשל|ארוחה|לאפות|עוגה|מרק|ארוחת/, "home","בישול",60],
   [/לסדר|ארון|מגירה|לארגן|למיין/, "home","סידור וארגון",30],
   [/לתקן|נורה|שרברב|טכנאי|נזילה/, "home","תיקונים",30],
-  [/גן|גננת|בית ספר|מורה|שיעורי|תיק|אסיפת/, "family","גן ובית ספר",20],
+  [/גן|גננת|בית ספר|בית הספר|מורה|שיעורי|תיק|אסיפת|כיתה|מבחן|מבחנים|טיול שנתי|הסעה/, "school","",20],
+  [/עבודה|משרד|ישיבה|מייל|לקוח|דוח|דו"ח|מנהל|פגישה/, "work","",30],
   [/חוג|חוגים/, "family","חוגים",15],
   [/יום הולדת|מתנה|בר מצווה|חתונה|בת מצווה|אפשערניש/, "family","מתנות ואירועים",40],
   [/אמא|אבא|סבתא|סבא|אחות|אחי|גיסה|גיס/, "family","משפחה",20],
@@ -260,15 +293,17 @@ const RULES = [
 
 /* examples shown only while the list is empty (never saved) */
 const T0 = todayStr();
+const YDAY = Date.now()-864e5;
 const EXAMPLES = [
-  {id:"ex1",kind:"task",text:"לקבוע תור לרופא שיניים",cat:"calls",sub:"תורים",minutes:10,urgency:3,small:false},
-  {id:"ex2",kind:"task",text:"להכין חלות לשבת",cat:"shabbat",sub:"בישולים",minutes:120,urgency:2,small:false},
-  {id:"ex3",kind:"task",text:"קניות בסופר לשבוע",cat:"errands",sub:"סופר",minutes:60,urgency:2,small:false},
-  {id:"ex4",kind:"task",text:"לסדר את ארון הבגדים של הילדים",cat:"home",sub:"סידור וארגון",minutes:45,urgency:1,small:false},
-  {id:"ex5",kind:"task",text:"כביסה",cat:"home",sub:"כביסה",minutes:30,urgency:2,small:false,recur:{freq:"daily"},nextDue:T0},
-  {id:"ex6",kind:"task",text:"להחזיר ספר לספרייה",cat:"errands",sub:"קניות לבית",minutes:5,urgency:1,small:true},
-  {id:"ex7",kind:"task",text:"להתקשר לאמא",cat:"family",sub:"משפחה",minutes:10,urgency:2,small:true},
-  {id:"ex8",kind:"task",text:"להחליף נורה במטבח",cat:"home",sub:"תיקונים",minutes:5,urgency:1,small:true},
+  {id:"ex1",kind:"task",text:"לקבוע תור לרופא שיניים לילדים",cat:"family",minutes:10,urgency:3,small:false},
+  {id:"ex2",kind:"task",text:"לחתום על אישור לטיול",cat:"school",minutes:5,urgency:2,small:false},
+  {id:"ex3",kind:"task",text:"לשלוח את הדוח החודשי",cat:"work",minutes:40,urgency:2,small:false},
+  {id:"ex4",kind:"task",text:"קניות בסופר לשבת",cat:"home",minutes:60,urgency:2,small:false},
+  {id:"ex5",kind:"task",text:"כביסה",cat:"home",minutes:30,urgency:2,small:false,recur:{freq:"daily"},nextDue:T0},
+  {id:"ex6",kind:"task",text:"לסדר את ארון הבגדים",cat:"home",minutes:45,urgency:1,small:false,created:YDAY},
+  {id:"ex12",kind:"task",text:"להתקשר לסבתא",cat:"family",minutes:15,urgency:2,small:false,created:YDAY},
+  {id:"ex7",kind:"task",text:"להחזיר ספר לספרייה",cat:"home",minutes:5,urgency:1,small:true},
+  {id:"ex8",kind:"task",text:"להחליף נורה במטבח",cat:"home",minutes:5,urgency:1,small:true},
   {id:"ex9",kind:"idea",text:"לאפות עוגיות עם הילדים"},
   {id:"ex10",kind:"idea",text:"הליכה לפארק בשקיעה"},
   {id:"ex11",kind:"idea",text:"לכתוב מכתב לחברה טובה"}
@@ -358,6 +393,7 @@ async function connect(){
         col().onSnapshot(snap=>{
           const remote = {};
           snap.docs.forEach(doc=>{ if(doc.id==="_settings"){settings=Object.assign(settings,doc.data()||{})} else {const v=doc.data(); if(v) remote[doc.id]=v;} });
+          if(Array.isArray(settings.topics)&&settings.topics.length) setTopics(settings.topics);
           if(first){
             first=false;
             // move anything saved only on this phone into the account copy
@@ -375,31 +411,31 @@ async function connect(){
 
 /* ---------- classification ---------- */
 function guess(text){
-  for(const [re,cat,sub,min] of RULES){ if(re.test(text)) return {cat,sub,minutes:min}; }
-  return {cat:"home",sub:"",minutes:20};
+  for(const [re,cat,sub,min] of RULES){ if(re.test(text)) return {cat:resolveCat(cat),sub,minutes:min}; }
+  return {cat:resolveCat("home"),sub:"",minutes:20};
 }
 async function aiClassify(it){
   if(!sample || aiOff) return;
   pendingAI.add(it.id); render(false);
-  const catList = CATS.map(c=>`${c.id} = ${c.name} (תתי-קטגוריות: ${c.subs.join(", ")})`).join("\n");
+  const catList = CATS.map(c=>`${c.id} = ${c.name}`).join("\n");
   const prompt =
 `את עוזרת לסדר רשימת משימות אישית של משפחה בישראל.
-סווגי את המשימה הבאה והעריכי כמה דקות היא תיקח בפועל, באופן מציאותי.
+${it.catSet? "הנושא כבר נבחר. העריכי רק כמה דקות היא תיקח בפועל, באופן מציאותי." : "שייכי את המשימה הבאה לאחד הנושאים והעריכי כמה דקות היא תיקח בפועל, באופן מציאותי."}
 
 המשימה: "${it.text}"
 
-הקטגוריות האפשריות:
+הנושאים האפשריים:
 ${catList}
 
 החזירי JSON בלבד, בלי טקסט נוסף, במבנה:
-{"cat":"<מזהה קטגוריה מהרשימה>","sub":"<תת-קטגוריה קצרה בעברית, עדיף מהרשימה>","minutes":<מספר שלם>,"small":<true אם זה סידור קטן של עד 10 דקות>}`;
+{"cat":"<מזהה נושא מהרשימה>","minutes":<מספר שלם>,"small":<true אם זה סידור קטן של עד 10 דקות>}`;
   try{
     const r = await sample.json(prompt,{modelTier:"quick"});
     const cur = items[it.id];
-    if(cur && r && CAT[r.cat]){
-      cur.cat=r.cat; cur.sub=String(r.sub||"").slice(0,30);
+    if(cur && r && (cur.catSet || CAT[r.cat])){
+      if(!cur.catSet) cur.cat=r.cat;
       if(Number(r.minutes)>0 && !cur.minutesSet) cur.minutes=Math.min(600,Math.round(Number(r.minutes)));
-      if(cur.recur==null && typeof r.small==="boolean" && !cur.smallSet) cur.small = r.small;
+      if(cur.recur==null && typeof r.small==="boolean" && !cur.smallSet && !cur.catSet) cur.small = r.small;
       cur.ai = true; persist(cur);
     }
   }catch(e){ if(e && (e.code==="not_granted"||e.code==="rate_limited")) aiOff = e.code==="not_granted"; }
@@ -419,6 +455,15 @@ function score(t){
   if(t.recur) s+=40;
   s -= (t.minutes||0)*0.05;
   return s;
+}
+function taskDay(t){
+  if(t.recur) return t.nextDue||todayStr();
+  if(t.day) return t.day;
+  return t.created? dStr(new Date(t.created)) : todayStr();
+}
+function isCarried(t){
+  const T=todayStr();
+  return isOpen(t) && !t.small && taskDay(t)<T && !(t.due && t.due>T);
 }
 function todayList(){
   const T=todayStr();
@@ -506,7 +551,7 @@ function metaRow(t, inHero){
   return bits;
 }
 function taskCard(t,i,wide){
-  const c=CAT[t.cat]||CAT.home;
+  const c=catOf(t);
   const done = !isOpen(t);
   return h("div",{class:"card pop"+(wide?" wide":"")+(done?" is-done":""),style:`--tint:var(${c.tint});--i:${i}`},
     t.id.startsWith("ex")? h("span",{class:"ex-tag"},"דוגמה"):null,
@@ -533,6 +578,7 @@ function viewToday(){
   const out = [
     h("div",{class:"top"},
       h("div",{},
+        h("div",{class:"bsd"},"ב״ה"),
         h("h1",{class:"hello"}, greeting()+", ", h("b",{},settings.name||"")),
         h("div",{class:"date"},"היום יום "+DAYS[new Date().getDay()]+" · ", h("span",{class:"heb"},hebDate()))
       ),
@@ -543,7 +589,7 @@ function viewToday(){
   if(hero){
     const dn=doneToday();
     out.push(h("p",{class:"summary"}, dn? [h("span",{class:"done-count"},"✓ כבר סיימת היום "+dn), " · "]:"", "נשארו ", h("strong",{},list.length+" משימות"), total? [", בערך ", h("strong",{},fmtMin(total).replace(/^כ-?/,""))]:"" , ". הנה מה שהכי חשוב:"));
-    const c=CAT[hero.cat]||CAT.home;
+    const c=catOf(hero);
     const hr = h("section",{class:"hero pop",style:"--i:0","aria-label":"הכי דחוף"},
       h("div",{class:"eyebrow"},"הדבר הכי דחוף עכשיו"),
       h("h2",{}, h("button",{class:"hero-title",onclick:()=>openEdit(hero),"aria-label":"עריכת המשימה: "+hero.text}, hero.text, h("span",{class:"pen","aria-hidden":"true"},"✎"))),
@@ -556,14 +602,10 @@ function viewToday(){
     if(rafflePool().length>1) out.push(h("button",{class:"raffle-btn pop",style:"--i:1",onclick:openRaffle},
       h("span",{class:"dice","aria-hidden":"true"},"🎲"),
       h("span",{}, h("b",{},"לא בא לי להחליט"), h("small",{},"הגרלה בין "+rafflePool().length+" הדברים הדחופים"))));
-    const rest=list.slice(1);
-    if(rest.length){
-      out.push(h("div",{class:"sec-h"},h("h3",{},"אחר כך"),h("span",{},rest.length+" משימות")));
-      out.push(h("div",{class:"grid"}, rest.map((t,i)=>taskCard(t,i+1))));
-    }
   } else {
     out.push(h("p",{class:"summary"},"אין משימות פתוחות להיום. זמן מצוין למשהו נחמד 🌸"));
   }
+  out.push(boardView());
   if(small.length){
     out.push(h("div",{class:"sec-h"},h("h3",{},"דברים קטנים"),h("span",{},"לחיצה = בוצע")));
     out.push(smallChips(small));
@@ -572,6 +614,64 @@ function viewToday(){
   out.push(ideaCard());
   return out;
 }
+/* ---------- the board (her sketch: קודמים + one panel per topic) ---------- */
+function trow(t, num){
+  const r = t.due && !t.recur ? relDue(t.due) : null;
+  const meta = [];
+  if(t.urgency===3) meta.push(h("span",{class:"pill u3"},"דחוף"));
+  if(r && !(num!=null && r.late)) meta.push(h("span",{class:"pill"+(r.late?" late":"")},r.txt));
+  if(t.recur) meta.push(h("span",{},"↻ "+recurLabel(t.recur)));
+  if(num!=null){ const d=taskDay(t), n=diffDays(todayStr(),d); meta.push(h("span",{}, catOf(t).name+" · "+(n===1?"מאתמול":"מיום "+DAYS[parse(d).getDay()]))); }
+  if(t.minutes) meta.push(h("span",{},fmtMin(t.minutes)));
+  if(pendingAI.has(t.id)) meta.push(h("span",{class:"ai pending"},"✦"));
+  return h("div",{class:"trow"+(t.id.startsWith("ex")?" ex":"")},
+    num!=null? h("span",{class:"num","aria-hidden":"true"},num) : null,
+    h("button",{class:"tmain",onclick:()=>openEdit(t)},
+      h("span",{class:"tt"},t.text),
+      meta.length? h("span",{class:"tmeta"},meta):null),
+    h("button",{class:"check sm","aria-label":"סימון כבוצע: "+t.text,onclick:()=>complete(t)}, svg(ICON.check,"3")));
+}
+function quickAdd(catId){
+  const c=CAT[catId];
+  const inp=h("input",{type:"text",id:"qa-"+catId,class:"qa-in",enterkeyhint:"enter",autocomplete:"off",
+    placeholder:"+ משימה ל"+c.name+", ואנטר", "aria-label":"הוספת משימה ל"+c.name});
+  inp.addEventListener("keydown",e=>{
+    if(e.key!=="Enter" || e.isComposing) return;
+    e.preventDefault();
+    const lines=inp.value.split(/\n/).map(x=>x.trim()).filter(Boolean);
+    if(!lines.length) return;
+    inp.value="";
+    lines.forEach(v=>addTask(v,{cat:catId}));
+    render(false);
+    const again=document.getElementById("qa-"+catId); if(again){ again.focus(); }
+    toast(lines.length>1? "נוספו "+lines.length+" משימות ✓" : "נוסף ל"+c.name+" ✓");
+  });
+  return h("div",{class:"qa"},inp);
+}
+function boardView(){
+  const T=todayStr();
+  const open=tasks().filter(t=>isOpen(t) && !t.small);
+  const carried=open.filter(isCarried).sort((a,b)=>taskDay(a).localeCompare(taskDay(b)) || score(b)-score(a));
+  const rest=open.filter(t=>!carried.includes(t));
+  const out=[h("div",{class:"sec-h board-h"},h("h3",{},"לוח המשימות שלי"))];
+  const panels=[];
+  if(carried.length){
+    panels.push(h("section",{class:"col prev pop",style:"--i:2"},
+      h("div",{class:"col-h"},h("h4",{},"קודמים"),h("span",{},carried.length===1?"משימה אחת שעברה להיום":carried.length+" משימות שעברו להיום")),
+      h("div",{class:"col-list"}, carried.map((t,i)=>trow(t,i+1)))));
+  }
+  CATS.forEach((c,ci)=>{
+    const l=rest.filter(t=>catOf(t).id===c.id).sort((a,b)=>score(b)-score(a));
+    const mins=l.reduce((s,t)=>s+(t.minutes||0),0);
+    panels.push(h("section",{class:"col pop",style:`--tint:var(${c.tint});--i:${ci+3}`},
+      h("div",{class:"col-h"},h("h4",{},c.name),h("span",{},l.length? l.length+(mins?" · "+fmtMin(mins):"") : "")),
+      l.length? h("div",{class:"col-list"}, l.map(t=>trow(t))) : null,
+      quickAdd(c.id)));
+  });
+  out.push(h("div",{class:"board"},panels));
+  return out;
+}
+
 function ideaCard(){
   const list=ideas();
   if(!list.length) return h("div",{class:"empty"},"עוד אין רעיונות. אפשר להוסיף בכפתור +");
@@ -637,7 +737,9 @@ function viewIdeas(){
 const VIEWS={today:["היום",viewToday,"today"],all:["משימות",viewAll,"all"],recur:["קבועות",viewRecur,"recur"],ideas:["רעיונות",viewIdeas,"ideas"]};
 function render(animate){
   const app=document.getElementById("app");
-  app.replaceChildren(...VIEWS[view][1]().filter(Boolean));
+  const ae=document.activeElement, keep = ae && ae.id && app.contains(ae) && ae.tagName==="INPUT" ? {id:ae.id,v:ae.value,s:ae.selectionStart} : null;
+  app.replaceChildren(...VIEWS[view][1]().flat().filter(Boolean));
+  if(keep){ const n=document.getElementById(keep.id); if(n){ n.value=keep.v; n.focus({preventScroll:true}); try{n.setSelectionRange(keep.s,keep.s)}catch(e){} } }
   if(animate===false) app.querySelectorAll(".pop").forEach(e=>e.classList.remove("pop"));
   const nav=document.getElementById("nav");
   nav.replaceChildren(...Object.entries(VIEWS).map(([k,v])=>h("button",{"aria-current":k===view?"page":false,onclick:()=>{view=k;render(true);window.scrollTo(0,0);}}, svg(ICON[v[2]],"1.9"), v[0])));
@@ -656,6 +758,20 @@ function seg(options, value, onChange){
   draw(); return wrap;
 }
 
+function newId(){ return "t"+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function addTask(text, o){
+  o=o||{};
+  const g=guess(text);
+  const it={id:newId(),kind:"task",text,cat:o.cat||g.cat,sub:"",minutes:g.minutes,urgency:o.urgency||2,small:!!o.small,smallSet:!!o.small,
+    catSet:!!o.cat,done:false,created:Date.now(),day:todayStr()};
+  if(o.small) it.minutes=Math.min(it.minutes,10);
+  if(o.minutes>0){ it.minutes=Math.min(600,o.minutes); it.minutesSet=true; }
+  if(o.due) it.due=o.due;
+  if(o.recur){ it.recur=o.recur; it.nextDue=firstDue(o.recur,todayStr()); }
+  items[it.id]=it; persist(it);
+  aiClassify(it);
+  return it;
+}
 function openAdd(){
   let type = view==="ideas"?"idea":view==="recur"?"recur":"task";
   let urgency=2, freq="weekly", wday=new Date().getDay(), mday=new Date().getDate();
@@ -676,37 +792,46 @@ function openAdd(){
   drawFreq();
   const hint=h("p",{class:"hint"});
   const sync=()=>{
-    urgF.hidden = type==="idea"; timeRow.hidden = type==="idea"; dueF.hidden = type!=="task"; recF.hidden = type!=="recur";
-    hint.textContent = type==="idea"? "רעיון לזמן פנוי, בלי לחץ." : (sample&&!aiOff? "✦ הקטגוריה והזמן יסודרו אוטומטית. אפשר לשנות אחר כך בלחיצה על המשימה." : "הקטגוריה והזמן יסודרו אוטומטית. אפשר לשנות אחר כך בלחיצה על המשימה.");
+    urgF.hidden = type==="idea"; timeRow.hidden = type==="idea"; catF.hidden = type==="idea"; dueF.hidden = type!=="task"; recF.hidden = type!=="recur";
+    hint.textContent = type==="idea"? "רעיון לזמן פנוי, בלי לחץ." : "אם לא בוחרים נושא, הוא ייקבע אוטומטית, וגם הזמן. אפשר לשנות אחר כך בלחיצה על המשימה.";
     text.placeholder = type==="idea"? "למשל: פיקניק בפארק עם הילדים" : type==="small"? "למשל: להחזיר ספר לספרייה" : type==="recur"? "למשל: לשטוף את הבית" : "מה צריך לעשות? למשל: לקבוע תור לרופא שיניים";
   };
-  const save=()=>{
-    const v=text.value.trim(); if(!v){text.focus();return;}
-    const id="t"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-    let it;
-    if(type==="idea") it={id,kind:"idea",text:v,created:Date.now()};
-    else{
-      const g=guess(v);
-      it={id,kind:"task",text:v,cat:g.cat,sub:g.sub,minutes:g.minutes,urgency:type==="small"?1:urgency,small:type==="small",smallSet:type==="small",done:false,created:Date.now()};
-      if(type==="small") it.minutes=Math.min(it.minutes,10);
-      const m=Math.round(Number(minIn.value)); if(m>0){ it.minutes=Math.min(600,m); it.minutesSet=true; }
-      if(type==="task" && due.value) it.due=due.value;
-      if(type==="recur"){ it.recur= freq==="daily"?{freq}: freq==="weekly"?{freq,day:wday}:{freq,day:mday}; it.nextDue=firstDue(it.recur,todayStr()); }
-    }
-    items[id]=it; persist(it); closeSheet();
-    if(it.kind==="task"){ if(view==="ideas") view="today"; } else view="ideas";
-    render(true);
-    toast(it.kind==="idea"?"הרעיון נוסף ✓":"המשימה נוספה ✓");
-    if(it.kind==="task") aiClassify(it);
+  let added=0;
+  const save=(stay)=>{
+    const lines=text.value.split(/\n/).map(x=>x.trim()).filter(Boolean);
+    if(!lines.length){ if(!stay && added) closeSheet(); else text.focus(); return; }
+    lines.forEach(v=>{
+      if(type==="idea"){ const it={id:newId(),kind:"idea",text:v,created:Date.now()}; items[it.id]=it; persist(it); return; }
+      addTask(v,{
+        urgency: type==="small"?1:urgency, small: type==="small",
+        cat: catPick||undefined,
+        minutes: Math.round(Number(minIn.value))||0,
+        due: type==="task"? due.value||null : null,
+        recur: type==="recur"? (freq==="daily"?{freq}: freq==="weekly"?{freq,day:wday}:{freq,day:mday}) : null
+      });
+    });
+    added+=lines.length;
+    if(type==="idea") view="ideas"; else if(view==="ideas") view="today";
+    render(false);
+    const msg = type==="idea"? (lines.length>1?"נוספו "+lines.length+" רעיונות ✓":"הרעיון נוסף ✓") : (lines.length>1?"נוספו "+lines.length+" משימות ✓":"המשימה נוספה ✓");
+    if(stay){ text.value=""; text.focus(); counter.textContent="נוספו עד עכשיו: "+added+". אפשר להמשיך לכתוב."; toast(msg); }
+    else { closeSheet(); toast(msg); }
   };
+  const counter=h("p",{class:"hint",style:"margin:0;color:var(--plum);font-weight:700","aria-live":"polite"});
+  let catPick="";
+  const catSel=h("select",{id:"new-cat"}, h("option",{value:""},"לבד (אוטומטי)"), CATS.map(c=>h("option",{value:c.id},c.name)));
+  catSel.onchange=()=>catPick=catSel.value;
+  const catF=h("div",{class:"field"},h("label",{for:"new-cat"},"נושא"),catSel);
   openSheet([
     h("h3",{},"מה להוסיף?"),
     seg([["task","משימה"],["small","דבר קטן"],["recur","משימה קבועה"],["idea","רעיון נחמד"]],type,v=>{type=v;sync();}),
-    h("div",{class:"field"},text),
-    urgF, timeRow, recF, hint,
-    h("div",{class:"actions"},h("button",{class:"btn",onclick:save},"הוספה"),h("button",{class:"btn ghost",onclick:closeSheet},"ביטול"))
+    h("div",{class:"field"},text, h("p",{class:"hint",style:"margin:0"},"כל אנטר מוסיף משימה, והחלון נשאר פתוח לבאה.")),
+    counter,
+    catF, urgF, timeRow, recF, hint,
+    h("div",{class:"actions"},h("button",{class:"btn",onclick:()=>save(false)},"הוספה וסיום"),h("button",{class:"btn ghost",onclick:closeSheet},"סגירה"))
   ]);
-  text.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();save();} });
+  text.rows=2;
+  text.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();save(true);} });
   sync();
 }
 
@@ -714,17 +839,14 @@ function openEdit(t){
   if(guardExample(t)) return;
   let urgency=t.urgency||2, cat=t.cat||"home";
   const text=h("textarea",{id:"ed-text"}); text.value=t.text;
-  const subIn=h("input",{type:"text",id:"ed-sub",list:"ed-subs",value:t.sub||""});
-  const subList=h("datalist",{id:"ed-subs"});
-  const drawSubs=()=>subList.replaceChildren(...CAT[cat].subs.map(s=>h("option",{value:s})));
-  drawSubs();
+  cat=catOf(t).id;
   const catSel=h("select",{id:"ed-cat"},CATS.map(c=>h("option",{value:c.id,selected:c.id===cat},c.name)));
-  catSel.onchange=()=>{cat=catSel.value;drawSubs();};
+  catSel.onchange=()=>{cat=catSel.value;};
   const minIn=h("input",{type:"number",id:"ed-min",min:"1",max:"600",value:t.minutes||""});
   const due=h("input",{type:"date",id:"ed-due",value:t.due||""});
   const smallChk=h("input",{type:"checkbox",id:"ed-small",checked:!!t.small,style:"width:20px;height:20px"});
   const save=()=>{
-    t.text=text.value.trim()||t.text; t.cat=cat; t.sub=subIn.value.trim(); const nm=Math.round(Number(minIn.value)); if(nm>0 && nm!==t.minutes){t.minutes=Math.min(600,nm); t.minutesSet=true;}
+    t.text=text.value.trim()||t.text; if(cat!==t.cat){t.cat=cat; t.catSet=true;} const nm=Math.round(Number(minIn.value)); if(nm>0 && nm!==t.minutes){t.minutes=Math.min(600,nm); t.minutesSet=true;}
     t.urgency=urgency; t.small=smallChk.checked; t.smallSet=true;
     if(!t.recur) t.due=due.value||null;
     persist(t); closeSheet(); render(false);
@@ -733,14 +855,13 @@ function openEdit(t){
     h("h3",{},"עריכת משימה"),
     h("div",{class:"field"},text),
     h("div",{class:"two"},
-      h("div",{class:"field"},h("label",{for:"ed-cat"},"קטגוריה"),catSel),
-      h("div",{class:"field"},h("label",{for:"ed-sub"},"תת-קטגוריה"),subIn,subList)),
+      h("div",{class:"field"},h("label",{for:"ed-cat"},"נושא"),catSel),
+      h("div",{class:"field"},h("label",{for:"ed-min"},"כמה דקות בערך?"),minIn)),
     h("div",{class:"two"},
-      h("div",{class:"field"},h("label",{for:"ed-min"},"כמה דקות בערך?"),minIn),
       t.recur? h("div",{class:"field"},h("span",{class:"lbl"},"חוזרת"),h("div",{style:"padding:11px 0"},recurLabel(t.recur))) : h("div",{class:"field"},h("label",{for:"ed-due"},"עד מתי?"),due)),
     h("div",{class:"field"},h("span",{class:"lbl"},"כמה דחוף?"), seg([[3,"דחוף"],[2,"חשוב"],[1,"מתי שיוצא"]],urgency,v=>urgency=v)),
     h("label",{style:"display:flex;gap:10px;align-items:center;font-weight:600"},smallChk,"זה דבר קטן (מופיע ברשימת הקטנים)"),
-    t.ai? h("p",{class:"hint"},"✦ הקטגוריה והזמן סודרו אוטומטית") : null,
+    t.ai? h("p",{class:"hint"},"✦ "+(t.catSet?"הזמן":"הנושא והזמן")+" סודרו אוטומטית") : null,
     h("div",{class:"actions"},
       h("button",{class:"btn",onclick:save},"שמירה"),
       h("button",{class:"btn del",onclick:()=>{const b=JSON.parse(JSON.stringify(t));remove(t.id);closeSheet();render(false);toast("המשימה נמחקה",()=>{items[b.id]=b;persist(b);render(false);});}},"מחיקה"))
@@ -773,14 +894,37 @@ function backupBlock(){
       h("button",{type:"button",onclick:()=>file.click()},"⬆ שחזור מגיבוי")),
     file);
 }
+function topicsEditor(){
+  const rows=CATS.map(c=>({id:c.id,name:c.name}));
+  const wrap=h("div",{class:"topics"});
+  const draw=()=>wrap.replaceChildren(...rows.map((r,i)=>{
+    const n=tasks().filter(t=>!t.id.startsWith("ex") && catOf(t).id===r.id && isOpen(t)).length;
+    const inp=h("input",{type:"text",id:"tp-"+r.id,value:r.name,"aria-label":"שם הנושא"});
+    inp.oninput=()=>r.name=inp.value;
+    return h("div",{class:"tp-row"}, inp,
+      i>0? h("button",{type:"button",class:"tp-btn","aria-label":"להזיז למעלה",onclick:()=>{[rows[i-1],rows[i]]=[rows[i],rows[i-1]];draw();}},"↑") : h("span",{class:"tp-btn ghost"}),
+      rows.length>1? h("button",{type:"button",class:"tp-btn del","aria-label":"מחיקת הנושא",title:n?"המשימות שבו יעברו לנושא הראשון":"",onclick:()=>{rows.splice(i,1);draw();}},"✕") : null);
+  }), h("button",{type:"button",class:"linkbtn",onclick:()=>{rows.push({id:"tp"+Date.now().toString(36),name:""});draw();setTimeout(()=>{const l=wrap.querySelectorAll("input");l[l.length-1].focus();},30);}},"+ נושא חדש"));
+  draw();
+  return {el:h("div",{class:"field"},h("span",{class:"lbl"},"הנושאים בלוח"),wrap,h("p",{class:"hint",style:"margin:0"},"משימות מנושא שנמחק עוברות לנושא הראשון ברשימה.")), rows};
+}
+function saveTopics(rows){
+  const list=rows.map(r=>({id:r.id,name:(r.name||"").trim()})).filter(r=>r.name);
+  if(!list.length) return;
+  settings.topics=list; setTopics(list);
+  const first=list[0].id;
+  realItems().forEach(t=>{ if(t.kind==="task" && !CAT[t.cat]){ t.cat=first; persist(t); } });
+}
 function openSettings(){
   const name=h("input",{type:"text",id:"set-name",value:settings.name||""});
+  const tp=topicsEditor();
   openSheet([
     h("h3",{},"הגדרות"),
     h("div",{class:"field"},h("label",{for:"set-name"},"איך לפנות אלייך?"),name),
+    tp.el,
     STANDALONE? backupBlock() : null,
     h("p",{class:"hint"}, dbLive? "המשימות נשמרות בחשבון שלך ומופיעות בכל מכשיר שבו את מחוברת." : STANDALONE? "" : "המשימות נשמרות בטלפון הזה."),
-    h("div",{class:"actions"},h("button",{class:"btn",onclick:()=>{settings.name=name.value.trim();persistSettings();closeSheet();render(false);}},"שמירה"),h("button",{class:"btn ghost",onclick:closeSheet},"ביטול"))
+    h("div",{class:"actions"},h("button",{class:"btn",onclick:()=>{settings.name=name.value.trim();saveTopics(tp.rows);persistSettings();closeSheet();render(false);}},"שמירה"),h("button",{class:"btn ghost",onclick:closeSheet},"ביטול"))
   ]);
 }
 
@@ -833,7 +977,7 @@ function openRaffle(){
     const t=pool[win];
     cells.forEach(c=>c.classList.remove("lit")); cells[win].classList.add("win");
     name.textContent=t.text;
-    const c=CAT[t.cat]||CAT.home;
+    const c=catOf(t);
     sub.textContent=c.name+(t.minutes?" · "+fmtMin(t.minutes):"");
     drum.classList.remove("spinning"); drum.classList.add("won");
     cheer.textContent=CHEERS[Math.floor(Math.random()*CHEERS.length)];
@@ -880,7 +1024,7 @@ function openFocus(t){
       lbl.textContent=paused?"בהשהיה":"נשאר"; drawButtons();}}, paused?"▶ המשך":"⏸ השהיה"));
   };
   openStage("עכשיו עובדות על זה",[
-    h("div",{class:"focus-task"},h("div",{class:"eyebrow"},(CAT[t.cat]||CAT.home).name),h("h3",{},t.text)),
+    h("div",{class:"focus-task"},h("div",{class:"eyebrow"},catOf(t).name),h("h3",{},t.text)),
     h("div",{class:"ring"},ringSvg,h("div",{class:"clock"},clock,lbl)),
     cheer, actions,
     h("p",{class:"hint",style:"text-align:center"},"הזמן לפי ההערכה של המשימה. אפשר לסיים מוקדם בכל רגע.")
@@ -895,10 +1039,20 @@ function openFocus(t){
   },1000);
 }
 
+function ensureTopics(){
+  if(!Array.isArray(settings.topics) || !settings.topics.length){
+    const list=DEFAULT_TOPICS.map(x=>({...x}));
+    const used=new Set(realItems().filter(i=>i.kind==="task").map(t=>t.cat));
+    Object.keys(LEGACY).forEach(id=>{ if(used.has(id) && !list.find(x=>x.id===id)) list.push({id,name:LEGACY[id]}); });
+    settings.topics=list; saveLocal();
+  }
+  setTopics(settings.topics);
+}
 /* ---------- boot ---------- */
 document.getElementById("fab").addEventListener("click",openAdd);
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ closeSheet(); if(document.getElementById("stage")){closeStage();render(false);} } });
 loadLocal();
+ensureTopics();
 // roll recurring/old state forward is implicit via nextDue; prune done tasks older than 30 days
 const cutoff=Date.now()-30*864e5;
 Object.values(items).forEach(t=>{ if(t.done && t.doneAt && t.doneAt<cutoff) delete items[t.id]; });
