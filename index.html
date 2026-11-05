@@ -245,6 +245,15 @@ body.is-dragging{user-select:none;-webkit-user-select:none;cursor:grabbing}
   .fab{left:max(28px,env(safe-area-inset-left,0px))}
 }
 
+.col-title{border:0;background:none;padding:0;font:inherit;color:inherit;text-decoration:inherit;text-align:right;cursor:text}
+.col-title .pen{font-size:.7em;opacity:.45;margin-inline-start:6px;text-decoration:none;display:inline-block}
+.col-title:hover .pen{opacity:.9}
+.rn-in{font-family:var(--f-display)!important;font-weight:600;font-size:18px!important;padding:4px 8px!important;border-radius:10px;width:100%;max-width:220px}
+.col-h h4:has(.rn-in){text-decoration:none}
+.add-col{border:2px dashed var(--on-bg-muted);background:transparent;color:var(--on-bg);box-shadow:none;font-family:var(--f-display);font-weight:600;font-size:17px;justify-content:center;align-items:center;min-height:64px;cursor:pointer}
+.add-col:hover{background:rgba(255,255,255,.06)}
+@media (min-width:900px){ .board .add-col{min-height:min(60vh,520px)} }
+
 /* on the purple ground */
 .hello,.summary,.sec-h h3,.stage-top h2,.focus-task h3,.ring .clock b{color:var(--on-bg)}
 .date,.sec-h span,.ring .clock span,.focus-task .eyebrow,.stage .hint{color:var(--on-bg-muted)}
@@ -721,6 +730,32 @@ function quickAdd(catId){
   });
   return h("div",{class:"qa"},inp);
 }
+function topicTitle(c){
+  const h4=h("h4",{}, h("button",{class:"col-title",title:"לחיצה לשינוי השם","aria-label":"שינוי שם הנושא "+c.name,onclick:()=>editTitle(h4,c)}, c.name, h("span",{class:"pen","aria-hidden":"true"},"✎")));
+  return h4;
+}
+function editTitle(h4,c){
+  const inp=h("input",{type:"text",id:"rn-"+c.id,class:"rn-in",value:c.name,enterkeyhint:"done","aria-label":"שם הנושא"});
+  let done=false;
+  const finish=(save)=>{
+    if(done) return; done=true;
+    const v=inp.value.trim();
+    if(save && v && v!==c.name){
+      saveTopics(CATS.map(x=>({id:x.id,name:x.id===c.id?v:x.name})));
+      persistSettings(); toast("השם שונה ל"+v);
+    }
+    render(false);
+  };
+  inp.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.isComposing){e.preventDefault();finish(true);} else if(e.key==="Escape"){finish(false);} });
+  inp.addEventListener("blur",()=>finish(true));
+  h4.replaceChildren(inp); inp.focus(); inp.select();
+}
+function addTopicInline(){
+  const id="tp"+Date.now().toString(36);
+  saveTopics(CATS.map(x=>({id:x.id,name:x.name})).concat([{id,name:"נושא חדש"}]));
+  persistSettings(); render(false);
+  const t=document.querySelector('.col[data-cat="'+id+'"] h4'); if(t) editTitle(t,CAT[id]);
+}
 function boardView(){
   const T=todayStr();
   const open=tasks().filter(t=>isOpen(t) && !t.small);
@@ -737,10 +772,11 @@ function boardView(){
     const l=rest.filter(t=>catOf(t).id===c.id).sort((a,b)=>score(b)-score(a));
     const mins=l.reduce((s,t)=>s+(t.minutes||0),0);
     panels.push(h("section",{class:"col pop",style:`--tint:var(${c.tint});--i:${ci+3}`,"data-cat":c.id},
-      h("div",{class:"col-h"},h("h4",{},c.name),h("span",{},l.length? l.length+(mins?" · "+fmtMin(mins):"") : "")),
+      h("div",{class:"col-h"},topicTitle(c),h("span",{},l.length? l.length+(mins?" · "+fmtMin(mins):"") : "")),
       l.length? h("div",{class:"col-list"}, l.map(t=>trow(t))) : null,
       quickAdd(c.id)));
   });
+  panels.push(h("button",{class:"col add-col",onclick:addTopicInline},"+ נושא חדש"));
   out.push(h("div",{class:"board"},panels));
   return out;
 }
